@@ -1,5 +1,3 @@
-# File: server_threading.py
-
 import socket
 import threading
 import os
@@ -8,15 +6,11 @@ def handle_client(connection_socket, client_address):
     try:
         request = connection_socket.recv(1024).decode()
         print(f"[REQUEST from {client_address}]")
-        # Hanya menampilkan baris pertama request untuk keringkasan log
         print(request.split("\r\n")[0] if "\r\n" in request else request)
 
-        # Parsing HTTP Request
         headers = request.split("\r\n")
         if not headers or not headers[0]:
-            # Request kosong atau tidak valid
             print(f"[ERROR] Empty or malformed request from {client_address}")
-            # Kirim respons Bad Request jika header tidak ada atau kosong
             error_header = 'HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n'
             error_body = '<h1>400 Bad Request</h1><p>The server received an empty or malformed request.</p>'
             error_response = error_header.encode() + error_body.encode()
@@ -25,7 +19,6 @@ def handle_client(connection_socket, client_address):
 
         request_line_parts = headers[0].split()
         if len(request_line_parts) < 2:
-            # Request line tidak lengkap
             print(f"[ERROR] Malformed request line from {client_address}: {headers[0]}")
             error_header = 'HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n'
             error_body = '<h1>400 Bad Request</h1><p>The request line is malformed.</p>'
@@ -36,15 +29,12 @@ def handle_client(connection_socket, client_address):
         filename = request_line_parts[1]
 
         if filename == '/':
-            filename = '/HelloWorld.html'  # default page
+            filename = '/HelloWorld.html'
 
-        # Keamanan dasar: Mencegah traversal direktori
-        # Pastikan filepath aman dan berada dalam direktori yang diharapkan
-        base_dir = os.path.abspath(".") # Direktori kerja saat ini
+        base_dir = os.path.abspath(".") 
         requested_path = os.path.abspath(os.path.join(base_dir, filename.lstrip('/')))
 
         if not requested_path.startswith(base_dir):
-            # Jika path yang diminta berada di luar direktori dasar, kirim 403 Forbidden
             print(f"[FORBIDDEN] Attempt to access outside base directory from {client_address}: {filename}")
             header = 'HTTP/1.1 403 Forbidden\r\nContent-Type: text/html\r\n\r\n'
             body = '<h1>403 Forbidden</h1><p>You do not have permission to access this file.</p>'
@@ -54,7 +44,6 @@ def handle_client(connection_socket, client_address):
                 with open(requested_path, 'rb') as f:
                     content = f.read()
                 header = 'HTTP/1.1 200 OK\r\n'
-                # Menentukan Content-Type berdasarkan ekstensi file
                 if filename.endswith(".html") or filename.endswith(".htm"):
                     header += 'Content-Type: text/html\r\n'
                 elif filename.endswith(".jpg") or filename.endswith(".jpeg"):
@@ -73,7 +62,7 @@ def handle_client(connection_socket, client_address):
                     header += 'Content-Type: application/octet-stream\r\n'
 
                 header += f'Content-Length: {len(content)}\r\n'
-                header += 'Connection: close\r\n' # Menambahkan header Connection: close
+                header += 'Connection: close\r\n'
                 header += '\r\n'
                 response = header.encode() + content
             except IOError as e:
@@ -89,7 +78,7 @@ def handle_client(connection_socket, client_address):
 
         connection_socket.sendall(response)
     except IndexError:
-        print(f"[ERROR] Malformed HTTP request (IndexError) from {client_address}. Request: {request[:100]}...") # Log sebagian request
+        print(f"[ERROR] Malformed HTTP request (IndexError) from {client_address}. Request: {request[:100]}...")
         error_header = 'HTTP/1.1 400 Bad Request\r\nContent-Type: text/html\r\n\r\n'
         error_body = '<h1>400 Bad Request</h1><p>The server could not understand the request due to invalid syntax.</p>'
         try:
@@ -118,7 +107,7 @@ def start_server(host='0.0.0.0', port=6789):
         server_socket.bind((host, port))
     except socket.error as e:
         print(f"[FATAL ERROR] Could not bind to address {host}:{port} - {e}. Check if the port is already in use or if you have permissions.")
-        return # Keluar jika bind gagal
+        return 
 
     server_socket.listen(5)
     print(f"[STARTED] Server listening on http://{host if host != '0.0.0.0' else '127.0.0.1'}:{port}")
@@ -133,9 +122,8 @@ def start_server(host='0.0.0.0', port=6789):
                 client_thread.daemon = True
                 client_thread.start()
             except socket.error as e:
-                # Menangani error pada accept() jika server socket ditutup secara tiba-tiba
                 print(f"[SERVER SOCKET ERROR] Could not accept connection: {e}")
-                break # Keluar dari loop jika socket server bermasalah
+                break 
     except KeyboardInterrupt:
         print("\n[STOPPING] Server shutting down due to KeyboardInterrupt...")
     except Exception as e:
@@ -146,7 +134,6 @@ def start_server(host='0.0.0.0', port=6789):
         print("[SHUTDOWN] Server has been shut down.")
 
 if __name__ == "__main__":
-    # Membuat file HelloWorld.html default jika belum ada, untuk kemudahan testing
     if not os.path.exists("HelloWorld.html"):
         with open("HelloWorld.html", "w") as f:
             f.write("<!DOCTYPE html><html><head><title>Default Page</title></head><body><h1>Hello from Default Page!</h1><p>This server is working.</p></body></html>")
